@@ -1,0 +1,121 @@
+---
+title: "Introductory Econometrics II - Assignment"
+author: "Kenny"
+date: "August 10, 2019"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+
+## Abstract
+
+This document to shed some light on monthly income, household size, Age of respondent, vulnerability index and marital Status as variables from the Kenya FinAccess Survey (FinAccess), 2018 to answer the following questions. The variables for 47 counties except Turkana County.
+
+```{r include=FALSE}
+setwd("C:/stata assignments/almost complete/masters for march/Kenny Msc finance")
+```
+## load packages
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(haven)
+```
+The haven package helps us with tools for unpacking the document in stata or spss format. Tidyverse will help in transformoing and interragating the data.
+
+## Load data
+
+```{r}
+data <- read_sav("2018 Finaccess Data.sav")
+```
+
+The above code show how we read the data into our analysis software.
+
+## Extract the variables
+
+```{r}
+working_data <- data %>% select(a1, a10, a13, a17, b3h1, vul_index) %>% filter(a1 != 23) %>% select(-a1)
+```
+
+
+The above code is how we extract the six variables i.e. including the county names. Note that we have removed Turkana county which is county number 023. Then we remove the county variable because we only need five variables.
+
+## renaming the variables and viewind the first four entries
+
+```{r}
+working_data <- working_data %>% rename( "Household Size" = a10, "Age of Respondents"= a13,"Marital Status" = a17,"Monthly Income" = b3h1, "Vulnerability Index" = vul_index)
+
+head(working_data,4) %>% knitr::kable()
+```
+
+## Correlation
+
+The main aim of this correlation is to estimate the strength of relationship between Monthly income, Household Size, Respondents Age and Vulnerability Index .
+
+```{r include=FALSE}
+library(psych)
+```
+
+```{r echo=TRUE}
+cor(working_data, use = "pairwise.complete.obs") %>% knitr::kable()
+correlation <- corr.test(working_data)
+print(correlation, short = F)
+```
+
+The table above shows the correlation between the variables.
+
+## Graph  showing monthly income across age groups
+
+```{r}
+ggplot(working_data, aes(x = `Age of Respondents`, y = `Monthly Income`)) + geom_jitter()
+```
+
+
+```{r include=FALSE}
+income_age <- working_data %>% na_if(" ") %>% filter(!is.na(`Monthly Income`)) %>% filter(!is.na(`Age of Respondents`))
+age_groups <-cut(income_age$`Age of Respondents`,breaks=c(0,20,25,30,35,40,100), labels = c("Below 20", "20-25", "26-30", "31-35","36-40", "Above 40"))
+monthly_salary <-cut(income_age$`Monthly Income`, breaks=c(0,2000,5000,10000,40000,100000,1000000), labels = c("Below 2,000", "2,000-5,000", "5,001-10,000", "10,001-40,000", "40,001-100,000","Above 100,000"))
+relation <- table(age_groups,monthly_salary)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+relation %>% knitr::kable()
+```
+
+
+## Marital Status change
+
+Otieno changed marital status to a dummy variable where 1 was Married and 0 otherwise. Using the new variable, establish whether monthly income is the same regardless of your marital status.
+
+```{r echo=TRUE}
+working_data$`Marital Status` <- as_factor(working_data$`Marital Status`)
+new_working_data <- working_data %>%  filter(`Marital Status` %in% c("Single/Never Married","Divorced/separated,Widowed", "Married/Living with partner" ))%>% mutate(new_status = if_else(`Marital Status`== "Married/Living with partner", 1,0))
+```
+
+To establish whether monthly income changes with the marriage status we run a linear model.
+
+```{r}
+model <- lm(`Monthly Income`~factor(new_status), new_working_data)
+summary(model)
+```
+
+
+## Regression analysis
+
+Joy postulates that household size, respondents age and vulnerability index are covariates of monthly income. This would best be answered using regression where we seek to estimate the how Monthly income as the dependent variable is likely to be influenced by Household Size, Respondents Age and Vulnerability Index (as the independent variables).
+
+Our null hypotheses would be;
+
+1. There is no significant relationship between monthly income and household size.
+
+2. There is no significant relationship between monthly income and respondents age.
+
+3. There is no significant relationship between monthly income and vulnerability index.
+
+The linear model is as follows;-
+
+```{r}
+model <- lm(formula = `Monthly Income` ~ `Household Size` + `Age of Respondents` + `Vulnerability Index`, working_data)
+summary(model)
+```
+
